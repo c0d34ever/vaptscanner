@@ -1,7 +1,11 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env if present
+load_dotenv(dotenv_path=BASE_DIR / '.env')
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'change-me-in-production')
 DEBUG = os.getenv('DEBUG', 'true').lower() == 'true'
@@ -14,10 +18,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     'scans',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -69,6 +75,9 @@ CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:63
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
+# Optional: run tasks eagerly (useful for local/dev without Redis)
+CELERY_TASK_ALWAYS_EAGER = os.getenv('CELERY_ALWAYS_EAGER', 'false').lower() == 'true'
+CELERY_TASK_EAGER_PROPAGATES = os.getenv('CELERY_EAGER_PROPAGATES', 'false').lower() == 'true'
 
 # ZAP proxy
 ZAP_PROXY = {
@@ -78,5 +87,16 @@ ZAP_PROXY = {
 
 # Simple API key for server-to-server auth
 API_KEY = os.getenv('VAPT_API_KEY', 'change-this-key')
+
+# CORS
+CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL', 'true').lower() == 'true'
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',') if not CORS_ALLOW_ALL_ORIGINS else []
+CORS_ALLOW_HEADERS = list({
+    'accept', 'accept-encoding', 'authorization', 'content-type', 'origin', 'user-agent', 'x-api-key'
+})
+
+# Optional startup scan
+STARTUP_SCAN_URL = os.getenv('STARTUP_SCAN_URL')
+STARTUP_SCAN_ENGINE = os.getenv('STARTUP_SCAN_ENGINE', 'zap')
 
 

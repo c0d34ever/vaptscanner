@@ -3,6 +3,13 @@
     {% csrf_token %}
     <label for="target_url">Target URL:</label>
     <input type="url" id="target_url" name="target_url" required style="width: 360px;" />
+    <label for="engine">Engine:</label>
+    <select id="engine" name="engine">
+        <option value="zap" selected>zap</option>
+        <option value="nmap">nmap</option>
+        <option value="sqlmap">sqlmap</option>
+        <option value="wapiti">wapiti</option>
+    </select>
     <button type="submit">Start Scan</button>
     </form>
 

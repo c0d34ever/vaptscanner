@@ -1,6 +1,7 @@
 import json
 from django.conf import settings
 from django.http import JsonResponse, HttpResponseForbidden
+from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import Scan
 from .tasks import run_vapt_scan
@@ -14,8 +15,9 @@ def dashboard(request):
 def new_scan(request):
     if request.method == 'POST':
         target_url = request.POST.get('target_url')
+        engine = request.POST.get('engine') or 'zap'
         if target_url:
-            scan = Scan.objects.create(target_url=target_url)
+            scan = Scan.objects.create(target_url=target_url, engine=engine)
             run_vapt_scan.delay(scan.id)
             return redirect('scan_report', scan_id=scan.id)
     return render(request, 'scans/new_scan.html')
@@ -33,6 +35,7 @@ def _check_api_key(request):
     return api_key and expected and api_key == expected
 
 
+@csrf_exempt
 def api_create_scan(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)

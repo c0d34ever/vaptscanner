@@ -4,5 +4,7 @@ redis>=5.0
 python-owasp-zap-v2.4>=0.0.20
 requests>=2.32
 python-nmap>=0.7.1
+python-dotenv>=1.0.1
+django-cors-headers>=4.4.0
 
 

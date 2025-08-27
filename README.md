@@ -42,6 +42,22 @@ Services:
 
 Configure with environment variables or edit `docker-compose.yml`.
 
+Auto-start a scan on deploy
+- Set envs before `docker compose up` (or in your VPS environment):
+```bash
+export STARTUP_SCAN_URL="https://example.com"
+export STARTUP_SCAN_ENGINE="zap"   # or nmap|sqlmap|wapiti
+```
+The web container will enqueue a scan at startup.
+
+### .env support
+- Create a `.env` file in project root (same folder as `manage.py`).
+- Recognized keys (see `ENV_EXAMPLE.txt`):
+  - `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`
+  - `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`
+  - `ZAP_HTTP`, `ZAP_HTTPS`, `VAPT_API_KEY`
+  - Optional for dev without Redis: `CELERY_ALWAYS_EAGER=true`, `CELERY_EAGER_PROPAGATES=true`
+
 ## API (for Laravel or other frontends)
 
 Set an API key (recommended):
@@ -57,6 +73,10 @@ Endpoints:
   - Returns: `{ id, status }`
 - GET `/api/scans/` → list recent scans
 - GET `/api/scans/{id}/` → details and report_json
+
+## Test frontend (Playground)
+- Open `/playground/` in your browser to try the API quickly.
+- Enter Base URL, API Key, target, and engine, then click Create Scan or List Scans.
 
 Example (PowerShell):
 ```powershell

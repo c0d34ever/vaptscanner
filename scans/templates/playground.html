@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>VAPT API Playground</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 24px; }
+      label { display: block; margin: 8px 0 4px; }
+      input, select { width: 360px; max-width: 100%; padding: 8px; }
+      button { margin-top: 12px; padding: 8px 12px; }
+      pre { background: #f6f6f6; padding: 12px; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <h1>VAPT API Playground</h1>
+    <label>Base URL</label>
+    <input id="base" value="" placeholder="http://localhost:8000" />
+    <label>API Key</label>
+    <input id="key" value="" placeholder="your-strong-key" />
+    <label>Target URL</label>
+    <input id="target" value="https://example.com" />
+    <label>Engine</label>
+    <select id="engine">
+      <option value="zap">zap</option>
+      <option value="nmap">nmap</option>
+      <option value="sqlmap">sqlmap</option>
+      <option value="wapiti">wapiti</option>
+    </select>
+    <div>
+      <button onclick="createScan()">Create Scan</button>
+      <button onclick="listScans()">List Scans</button>
+    </div>
+    <h3>Response</h3>
+    <pre id="out"></pre>
+    <script>
+      function b() { return document.getElementById('base').value || location.origin }
+      function k() { return document.getElementById('key').value }
+      function o(t) { document.getElementById('out').textContent = typeof t==='string'?t:JSON.stringify(t,null,2) }
+      async function createScan(){
+        try{
+          const body = { target_url: document.getElementById('target').value, engine: document.getElementById('engine').value };
+          const r = await fetch(`${b()}/api/scans/create/`, { method:'POST', headers:{ 'Content-Type':'application/json','X-API-Key':k() }, body: JSON.stringify(body) });
+          o(await r.json());
+        }catch(e){ o(String(e)) }
+      }
+      async function listScans(){
+        try{
+          const r = await fetch(`${b()}/api/scans/`, { headers:{ 'X-API-Key':k() } });
+          o(await r.json());
+        }catch(e){ o(String(e)) }
+      }
+    </script>
+  </body>
+  </html>
+
+
