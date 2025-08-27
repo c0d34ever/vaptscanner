@@ -1,0 +1,8 @@
+Django>=5.0
+celery>=5.3
+redis>=5.0
+python-owasp-zap-v2.4>=0.0.20
+requests>=2.32
+python-nmap>=0.7.1
+
+

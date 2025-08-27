@@ -1,0 +1,10 @@
+SECRET_KEY=change-me
+DEBUG=false
+ALLOWED_HOSTS=*
+CELERY_BROKER_URL=redis://redis:6379/0
+CELERY_RESULT_BACKEND=redis://redis:6379/0
+ZAP_HTTP=http://zap:8080
+ZAP_HTTPS=http://zap:8080
+VAPT_API_KEY=your-strong-key
+
+

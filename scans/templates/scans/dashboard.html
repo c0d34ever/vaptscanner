@@ -1,0 +1,24 @@
+<h1>VAPT Dashboard</h1>
+<a href="{% url 'new_scan' %}">Start New Scan</a>
+<table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+        <tr>
+            <th>Target</th>
+            <th>Status</th>
+            <th>Start Time</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for scan in scans %}
+        <tr>
+            <td>{{ scan.target_url }}</td>
+            <td>{{ scan.status }}</td>
+            <td>{{ scan.start_time }}</td>
+            <td><a href="{% url 'scan_report' scan.id %}">View Report</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+

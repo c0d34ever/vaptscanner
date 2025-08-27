@@ -1,0 +1,44 @@
+version: '3.9'
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  zap:
+    image: owasp/zap2docker-stable
+    command: ["zap.sh", "-daemon", "-host", "0.0.0.0", "-port", "8080", "-config", "api.disablekey=true"]
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  web:
+    build: .
+    environment:
+      - DEBUG=false
+      - ALLOWED_HOSTS=*
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - ZAP_HTTP=http://zap:8080
+      - ZAP_HTTPS=http://zap:8080
+      - VAPT_API_KEY=${VAPT_API_KEY:-change-this-key}
+    depends_on:
+      - redis
+      - zap
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  worker:
+    build: .
+    environment:
+      - RUN_CELERY=worker
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - ZAP_HTTP=http://zap:8080
+      - ZAP_HTTPS=http://zap:8080
+    depends_on:
+      - redis
+      - zap
+    restart: unless-stopped
+
+

@@ -1,0 +1,9 @@
+<h1>Start a New Scan</h1>
+<form method="post">
+    {% csrf_token %}
+    <label for="target_url">Target URL:</label>
+    <input type="url" id="target_url" name="target_url" required style="width: 360px;" />
+    <button type="submit">Start Scan</button>
+    </form>
+
+

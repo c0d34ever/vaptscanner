@@ -1,0 +1,20 @@
+<h1>Scan Report for {{ scan.target_url }}</h1>
+<p><strong>Status:</strong> {{ scan.status }}</p>
+<p><strong>Start Time:</strong> {{ scan.start_time }}</p>
+<p><strong>End Time:</strong> {{ scan.end_time|default:"N/A" }}</p>
+<h2>Findings ({{ findings|length }})</h2>
+{% if findings %}
+<ul>
+    {% for finding in findings %}
+    <li>
+        <strong>{{ finding.name }}</strong> (Severity: {{ finding.severity }})<br/>
+        URL: <a href="{{ finding.url }}">{{ finding.url }}</a><br/>
+        Description: {{ finding.description|linebreaksbr }}
+    </li>
+    {% endfor %}
+    </ul>
+{% else %}
+<p>No vulnerabilities found yet or scan in progress.</p>
+{% endif %}
+
+
