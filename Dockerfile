@@ -8,12 +8,15 @@ WORKDIR /app
 # System deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential curl ca-certificates \
-    nmap sqlmap wapiti netcat-openbsd \
+    nmap sqlmap netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt \
     && pip install --no-cache-dir gunicorn
+
+# Install wapiti via pip (package name: wapiti3)
+RUN pip install --no-cache-dir wapiti3
 
 COPY . .
 
