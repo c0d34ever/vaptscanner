@@ -45,7 +45,7 @@ Write-Host ""
 Write-Host "🎉 VAPT Scanner is starting up!" -ForegroundColor Green
 Write-Host ""
 Write-Host "📱 Dashboard: http://localhost:8001" -ForegroundColor Cyan
-Write-Host "🌐 Nginx Proxy: http://localhost" -ForegroundColor Cyan
+Write-Host "🌐 Nginx Proxy: http://localhost:8080" -ForegroundColor Cyan
 Write-Host "📚 API Docs: http://localhost:8001/docs" -ForegroundColor Cyan
 Write-Host "🔑 API Key: vapt-key-u3JkN9qX4sW8yZ2tL6aP0vB3mH7cD1rF5xG9kT2nV4pS8qL0wE3" -ForegroundColor Yellow
 Write-Host ""

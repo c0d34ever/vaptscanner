@@ -1,0 +1,44 @@
+# Example Docker Compose override file
+# Copy this to docker-compose.override.yml and modify as needed
+
+version: '3.8'
+
+services:
+  fastapi:
+    ports:
+      - "8001:8001"  # Change 8001 to any available port
+    environment:
+      - DEBUG=True
+      - CORS_ALLOW_ALL=True
+
+  nginx:
+    ports:
+      - "8080:80"    # Change 8080 to any available port
+      - "8443:443"   # Change 8443 to any available port
+
+  redis:
+    ports:
+      - "6379:6379"  # Change 6379 to any available port
+
+  zap:
+    ports:
+      - "8080:8080"  # Change 8080 to any available port
+
+# Example: If you want to use different ports, uncomment and modify:
+# services:
+#   fastapi:
+#     ports:
+#       - "9001:8001"  # Use port 9001 instead of 8001
+#   
+#   nginx:
+#     ports:
+#       - "9000:80"    # Use port 9000 instead of 8080
+#       - "9443:443"   # Use port 9443 instead of 8443
+#   
+#   redis:
+#     ports:
+#       - "6380:6379"  # Use port 6380 instead of 6379
+#   
+#   zap:
+#     ports:
+#       - "8090:8080"  # Use port 8090 instead of 8080
