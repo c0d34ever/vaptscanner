@@ -1,24 +1,240 @@
-<h1>VAPT Dashboard</h1>
-<a href="{% url 'new_scan' %}">Start New Scan</a>
-<table border="1" cellpadding="6" cellspacing="0">
-    <thead>
-        <tr>
-            <th>Target</th>
-            <th>Status</th>
-            <th>Start Time</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for scan in scans %}
-        <tr>
-            <td>{{ scan.target_url }}</td>
-            <td>{{ scan.status }}</td>
-            <td>{{ scan.start_time }}</td>
-            <td><a href="{% url 'scan_report' scan.id %}">View Report</a></td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VAPT Dashboard</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        .stat-card { background: white; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .stat-number { font-size: 2em; font-weight: bold; color: #2563eb; }
+        .stat-label { color: #6b7280; margin-top: 5px; }
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .chart-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .actions { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn { display: inline-block; padding: 10px 20px; margin: 5px; background: #2563eb; color: white; text-decoration: none; border-radius: 5px; border: none; cursor: pointer; }
+        .btn:hover { background: #1d4ed8; }
+        .btn-secondary { background: #6b7280; }
+        .btn-secondary:hover { background: #4b5563; }
+        .btn-success { background: #059669; }
+        .btn-success:hover { background: #047857; }
+        .scans-table { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        th { background: #f9fafb; font-weight: 600; }
+        .status-badge { padding: 4px 8px; border-radius: 12px; font-size: 0.8em; font-weight: 500; }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-in_progress { background: #dbeafe; color: #1e40af; }
+        .status-completed { background: #d1fae5; color: #065f46; }
+        .status-failed { background: #fee2e2; color: #991b1b; }
+        .search-box { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 5px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>VAPT Scanner Dashboard</h1>
+            <p>Vulnerability Assessment and Penetration Testing Platform</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="total-scans">-</div>
+                <div class="stat-label">Total Scans</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="completed-scans">-</div>
+                <div class="stat-label">Completed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="total-findings">-</div>
+                <div class="stat-label">Total Findings</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="critical-findings">-</div>
+                <div class="stat-label">Critical/High</div>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h3>Scan Status Distribution</h3>
+                <canvas id="statusChart" width="400" height="200"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>Engine Usage</h3>
+                <canvas id="engineChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+
+        <div class="actions">
+            <h3>Quick Actions</h3>
+            <a href="{% url 'new_scan' %}" class="btn">Start New Scan</a>
+            <button onclick="showBulkScan()" class="btn btn-secondary">Bulk Scan</button>
+            <button onclick="showTemplateManager()" class="btn btn-secondary">Templates</button>
+            <button onclick="showScheduler()" class="btn btn-secondary">Scheduler</button>
+            <a href="{% url 'playground' %}" class="btn btn-success">API Playground</a>
+        </div>
+
+        <div class="scans-table">
+            <h3>Recent Scans</h3>
+            <input type="text" class="search-box" id="searchInput" placeholder="Search scans, URLs, or findings...">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Target</th>
+                        <th>Engine</th>
+                        <th>Status</th>
+                        <th>Findings</th>
+                        <th>Start Time</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="scansTableBody">
+                    {% for scan in scans %}
+                    <tr>
+                        <td>{{ scan.target_url }}</td>
+                        <td>{{ scan.engine }}</td>
+                        <td><span class="status-badge status-{{ scan.status|lower }}">{{ scan.status }}</span></td>
+                        <td>{{ scan.findings.count }}</td>
+                        <td>{{ scan.start_time|date:"M d, H:i" }}</td>
+                        <td>
+                            <a href="{% url 'scan_report' scan.id %}" class="btn btn-secondary">View</a>
+                            <button onclick="exportScan({{ scan.id }})" class="btn">Export</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Bulk Scan Modal -->
+    <div id="bulkScanModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="background: white; margin: 10% auto; padding: 20px; width: 80%; max-width: 600px; border-radius: 8px;">
+            <h3>Bulk Scan</h3>
+            <textarea id="bulkUrls" placeholder="Enter URLs (one per line)" style="width: 100%; height: 100px; margin: 10px 0;"></textarea>
+            <select id="bulkEngine" style="width: 100%; padding: 10px; margin: 10px 0;">
+                <option value="zap">ZAP</option>
+                <option value="nmap">Nmap</option>
+                <option value="sqlmap">SQLMap</option>
+                <option value="wapiti">Wapiti</option>
+            </select>
+            <button onclick="executeBulkScan()" class="btn">Start Bulk Scan</button>
+            <button onclick="closeModal('bulkScanModal')" class="btn btn-secondary">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        // Load stats and charts
+        loadStats();
+        loadCharts();
+
+        function loadStats() {
+            fetch('/api/stats/?days=30')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('total-scans').textContent = data.total_scans;
+                    document.getElementById('completed-scans').textContent = data.completed_scans;
+                    document.getElementById('total-findings').textContent = data.total_findings;
+                    document.getElementById('critical-findings').textContent = data.critical_findings;
+                })
+                .catch(error => console.error('Error loading stats:', error));
+        }
+
+        function loadCharts() {
+            fetch('/api/stats/?days=30')
+                .then(response => response.json())
+                .then(data => {
+                    // Status Chart
+                    const statusCtx = document.getElementById('statusChart').getContext('2d');
+                    new Chart(statusCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: data.status_breakdown.map(s => s.status),
+                            datasets: [{
+                                data: data.status_breakdown.map(s => s.count),
+                                backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444']
+                            }]
+                        }
+                    });
+
+                    // Engine Chart
+                    const engineCtx = document.getElementById('engineChart').getContext('2d');
+                    new Chart(engineCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.engine_breakdown.map(e => e.engine),
+                            datasets: [{
+                                label: 'Scans',
+                                data: data.engine_breakdown.map(e => e.count),
+                                backgroundColor: '#3b82f6'
+                            }]
+                        },
+                        options: {
+                            scales: { y: { beginAtZero: true } }
+                        }
+                    });
+                })
+                .catch(error => console.error('Error loading charts:', error));
+        }
+
+        function showBulkScan() {
+            document.getElementById('bulkScanModal').style.display = 'block';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        function executeBulkScan() {
+            const urls = document.getElementById('bulkUrls').value.split('\n').filter(url => url.trim());
+            const engine = document.getElementById('bulkEngine').value;
+            
+            if (urls.length === 0) {
+                alert('Please enter at least one URL');
+                return;
+            }
+
+            fetch('/api/bulk-scan/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ urls: urls, engine: engine })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(`Created ${data.scan_ids.length} scans`);
+                closeModal('bulkScanModal');
+                location.reload();
+            })
+            .catch(error => {
+                alert('Error creating bulk scan: ' + error);
+            });
+        }
+
+        function exportScan(scanId) {
+            const format = prompt('Enter format (csv or json):', 'json');
+            if (format) {
+                window.open(`/api/scans/${scanId}/export/?format=${format}`);
+            }
+        }
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('#scansTableBody tr');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(query) ? '' : 'none';
+            });
+        });
+    </script>
+</body>
+</html>
 
 

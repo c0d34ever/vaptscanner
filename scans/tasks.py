@@ -3,7 +3,7 @@ from celery import shared_task
 from django.utils import timezone
 import json
 import subprocess
-from .models import Scan, Finding
+from .models import Scan, Finding, ScanLog
 from django.conf import settings
 from zapv2 import ZAPv2
 
@@ -19,16 +19,22 @@ def run_vapt_scan(self, scan_id: int):
     scan_record.task_id = self.request.id
     scan_record.save()
     try:
+        ScanLog.objects.create(scan=scan_record, level='INFO', message='Scan started', context={'engine': engine, 'target': target})
         if engine == 'zap':
             # Warm up target and spider
+            ScanLog.objects.create(scan=scan_record, level='INFO', message='ZAP accessing target')
             zap.core.access_url(target)
             spider_id = zap.spider.scan(target)
+            ScanLog.objects.create(scan=scan_record, level='INFO', message='ZAP spider started', context={'spider_id': spider_id})
             while int(zap.spider.status(spider_id)) < 100:
                 time.sleep(2)
+            ScanLog.objects.create(scan=scan_record, level='INFO', message='ZAP spider completed')
             # Active scan
             ascan_id = zap.ascan.scan(target)
+            ScanLog.objects.create(scan=scan_record, level='INFO', message='ZAP active scan started', context={'scan_id': ascan_id})
             while int(zap.ascan.status(ascan_id)) < 100:
                 time.sleep(5)
+            ScanLog.objects.create(scan=scan_record, level='INFO', message='ZAP active scan completed')
             # Wait for passive scan records to drain
             for _ in range(30):
                 try:
@@ -38,6 +44,7 @@ def run_vapt_scan(self, scan_id: int):
                 if remaining == 0:
                     break
                 time.sleep(2)
+            ScanLog.objects.create(scan=scan_record, level='INFO', message='ZAP passive scan drain complete')
             # Collect alerts specifically for base URL
             alerts = zap.core.alerts(baseurl=target) or []
             for alert in alerts:
@@ -53,6 +60,7 @@ def run_vapt_scan(self, scan_id: int):
         elif engine == 'nmap':
             # Run nmap and parse open ports as findings
             args = ['nmap', '-sV', '-O', '-T4', target]
+            ScanLog.objects.create(scan=scan_record, level='INFO', message='Running nmap', context={'args': args})
             completed = subprocess.run(args, capture_output=True, text=True)
             stdout = completed.stdout
             scan_record.command_output = stdout + "\n" + completed.stderr
@@ -79,6 +87,7 @@ def run_vapt_scan(self, scan_id: int):
 
         elif engine == 'sqlmap':
             args = ['sqlmap', '-u', target, '--batch', '--random-agent', '--level=2', '--risk=1', '--crawl=1']
+            ScanLog.objects.create(scan=scan_record, level='INFO', message='Running sqlmap', context={'args': args})
             completed = subprocess.run(args, capture_output=True, text=True)
             stdout = completed.stdout
             scan_record.command_output = stdout + "\n" + completed.stderr
@@ -95,6 +104,7 @@ def run_vapt_scan(self, scan_id: int):
 
         elif engine == 'wapiti':
             args = ['wapiti', '-u', target, '-f', 'json', '-o', 'wapiti_report.json']
+            ScanLog.objects.create(scan=scan_record, level='INFO', message='Running wapiti', context={'args': args})
             completed = subprocess.run(args, capture_output=True, text=True)
             scan_record.command_output = completed.stdout + "\n" + completed.stderr
             try:
@@ -123,11 +133,13 @@ def run_vapt_scan(self, scan_id: int):
         scan_record.status = 'COMPLETED'
         scan_record.end_time = timezone.now()
         scan_record.save()
+        ScanLog.objects.create(scan=scan_record, level='INFO', message='Scan completed')
     except Exception as exc:
         scan_record.status = 'FAILED'
         scan_record.error_message = str(exc)
         scan_record.end_time = timezone.now()
         scan_record.save()
+        ScanLog.objects.create(scan=scan_record, level='ERROR', message='Scan failed', context={'error': str(exc)})
         raise
 
 
