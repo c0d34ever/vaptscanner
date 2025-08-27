@@ -162,7 +162,7 @@ docker-compose up -d --build
 - Nginx Proxy: 8080 (instead of 80)
 - Nginx HTTPS: 8443 (instead of 443)
 - Redis: 6379
-- ZAP Scanner: 8080
+- ZAP Scanner: 8090 (instead of 8080)
 
 #### 2. Permission Denied Error
 **Error**: `exec: "./entrypoint.sh": permission denied`
@@ -231,7 +231,7 @@ docker-compose exec redis redis-cli ping
 
 #### ZAP Health
 ```bash
-curl http://localhost:8080/JSON/core/view/version
+curl http://localhost:8090/JSON/core/view/version
 ```
 
 ## 🏗️ Architecture Details
@@ -253,7 +253,7 @@ ZAP Scanner
 ### Network Configuration
 - **Internal**: Services communicate via Docker network
 - **External**: FastAPI exposed on port 8001, Nginx on port 8080
-- **ZAP**: Accessible on port 8080 for debugging
+- **ZAP**: Accessible on port 8090 for debugging
 
 ## 🔒 Security Considerations
 

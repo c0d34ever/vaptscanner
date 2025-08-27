@@ -30,7 +30,7 @@ $ports = @(
     @{Port=8080; Service="Nginx Proxy"},
     @{Port=8443; Service="Nginx HTTPS"},
     @{Port=6379; Service="Redis"},
-    @{Port=8080; Service="ZAP Scanner"}
+    @{Port=8090; Service="ZAP Scanner"}
 )
 
 Write-Host "📊 Port Status Check:" -ForegroundColor Yellow

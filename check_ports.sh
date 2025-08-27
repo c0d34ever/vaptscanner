@@ -34,7 +34,7 @@ ports=(
     "8080:Nginx Proxy"
     "8443:Nginx HTTPS"
     "6379:Redis"
-    "8080:ZAP Scanner"
+    "8090:ZAP Scanner"
 )
 
 echo "📊 Port Status Check:"

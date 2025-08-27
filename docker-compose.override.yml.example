@@ -22,7 +22,7 @@ services:
 
   zap:
     ports:
-      - "8080:8080"  # Change 8080 to any available port
+      - "8090:8080"  # Change 8090 to any available port
 
 # Example: If you want to use different ports, uncomment and modify:
 # services:
@@ -41,4 +41,4 @@ services:
 #   
 #   zap:
 #     ports:
-#       - "8090:8080"  # Use port 8090 instead of 8080
+#       - "9090:8080"  # Use port 9090 instead of 8090

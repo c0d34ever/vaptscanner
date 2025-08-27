@@ -1,6 +1,6 @@
-# PowerShell script to start VAPT Scanner with Docker Compose (Clean Version)
+# PowerShell script to start VAPT Scanner with Docker Compose (Fresh Start)
 
-Write-Host "🚀 Starting VAPT Scanner with Docker Compose (Clean Version)..." -ForegroundColor Green
+Write-Host "🚀 Starting VAPT Scanner with Docker Compose (Fresh Start)..." -ForegroundColor Green
 
 # Check if .env file exists, if not create from env.docker
 if (-not (Test-Path ".env")) {
@@ -25,9 +25,13 @@ try {
     exit 1
 }
 
-# Clean up any existing containers and orphaned containers
-Write-Host "🧹 Cleaning up existing containers..." -ForegroundColor Yellow
-docker-compose down --remove-orphans
+# Force stop and remove all containers
+Write-Host "🧹 Force cleaning up all containers..." -ForegroundColor Yellow
+docker-compose down --remove-orphans --volumes --timeout 0
+
+# Remove any dangling containers
+Write-Host "🗑️  Removing any dangling containers..." -ForegroundColor Yellow
+docker container prune -f
 
 # Build and start all services
 Write-Host "🔨 Building and starting services..." -ForegroundColor Yellow
@@ -35,7 +39,7 @@ docker-compose up -d --build
 
 # Wait for services to be ready
 Write-Host "⏳ Waiting for services to be ready..." -ForegroundColor Yellow
-Start-Sleep -Seconds 15
+Start-Sleep -Seconds 20
 
 # Check service status
 Write-Host "📊 Checking service status..." -ForegroundColor Yellow
@@ -56,4 +60,5 @@ Write-Host "🔄 To restart: docker-compose restart" -ForegroundColor White
 Write-Host ""
 Write-Host "⏳ Services are starting up. Please wait a few minutes for full initialization." -ForegroundColor Yellow
 Write-Host ""
-Write-Host "💡 If you see any permission errors, the Python entrypoint script should handle them automatically." -ForegroundColor Green
+Write-Host "💡 If you see any errors, check logs with: docker-compose logs -f [service_name]" -ForegroundColor Green
+Write-Host "💡 Port configuration: FastAPI(8001), Nginx(8080), ZAP(8090), Redis(6379)" -ForegroundColor Green

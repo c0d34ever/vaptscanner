@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 Starting VAPT Scanner with Docker Compose (Clean Version)..."
+echo "🚀 Starting VAPT Scanner with Docker Compose (Fresh Start)..."
 
 # Check if .env file exists, if not create from env.docker
 if [ ! -f .env ]; then
@@ -19,9 +19,13 @@ if ! command -v docker-compose &> /dev/null; then
     exit 1
 fi
 
-# Clean up any existing containers and orphaned containers
-echo "🧹 Cleaning up existing containers..."
-docker-compose down --remove-orphans
+# Force stop and remove all containers
+echo "🧹 Force cleaning up all containers..."
+docker-compose down --remove-orphans --volumes --timeout 0
+
+# Remove any dangling containers
+echo "🗑️  Removing any dangling containers..."
+docker container prune -f
 
 # Build and start all services
 echo "🔨 Building and starting services..."
@@ -29,7 +33,7 @@ docker-compose up -d --build
 
 # Wait for services to be ready
 echo "⏳ Waiting for services to be ready..."
-sleep 15
+sleep 20
 
 # Check service status
 echo "📊 Checking service status..."
@@ -50,4 +54,5 @@ echo "🔄 To restart: docker-compose restart"
 echo ""
 echo "⏳ Services are starting up. Please wait a few minutes for full initialization."
 echo ""
-echo "💡 If you see any permission errors, the Python entrypoint script should handle them automatically."
+echo "💡 If you see any errors, check logs with: docker-compose logs -f [service_name]"
+echo "💡 Port configuration: FastAPI(8001), Nginx(8080), ZAP(8090), Redis(6379)"

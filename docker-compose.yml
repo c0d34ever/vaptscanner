@@ -57,7 +57,7 @@ services:
     image: ghcr.io/zaproxy/zaproxy:stable
     command: zap.sh -daemon -config api.disablekey=true -config api.addrs.addr.name=.* -config api.addrs.addr.regex=true -config api.addrs.addr.value=true
     ports:
-      - "8080:8080"
+      - "8090:8080"
     restart: unless-stopped
 
   nginx:
@@ -67,7 +67,6 @@ services:
       - "8443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
     depends_on:
       - fastapi
     restart: unless-stopped
