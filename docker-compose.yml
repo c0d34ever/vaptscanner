@@ -1,43 +1,73 @@
+version: '3.8'
+
 services:
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - VAPT_API_KEY=${VAPT_API_KEY:-vapt-key-u3JkN9qX4sW8yZ2tL6aP0vB3mH7cD1rF5xG9kT2nV4pS8qL0wE3}
+      - SECRET_KEY=${SECRET_KEY:-django-secret-1aZ3Qm9YpQ6uZr0F8dV7xK2wB5eN4tH9sJ3uC1pL7qT0mR6yV2aW}
+      - DEBUG=${DEBUG:-True}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      - ZAP_HTTP=${ZAP_HTTP:-http://zap:8080}
+      - ZAP_HTTPS=${ZAP_HTTPS:-http://zap:8080}
+      - STARTUP_SCAN_URL=${STARTUP_SCAN_URL:-}
+      - STARTUP_SCAN_ENGINE=${STARTUP_SCAN_ENGINE:-zap}
+      - CORS_ALLOW_ALL=${CORS_ALLOW_ALL:-True}
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - zap
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A vapt_platform worker --loglevel=info
+    environment:
+      - VAPT_API_KEY=${VAPT_API_KEY:-vapt-key-u3JkN9qX4sW8yZ2tL6aP0vB3mH7cD1rF5xG9kT2nV4pS8qL0wE3}
+      - SECRET_KEY=${SECRET_KEY:-django-secret-1aZ3Qm9YpQ6uZr0F8dV7xK2wB5eN4tH9sJ3uC1pL7qT0mR6yV2aW}
+      - DEBUG=${DEBUG:-True}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      - ZAP_HTTP=${ZAP_HTTP:-http://zap:8080}
+      - ZAP_HTTPS=${ZAP_HTTPS:-http://zap:8080}
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - zap
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
+    ports:
+      - "6379:6379"
     restart: unless-stopped
 
   zap:
     image: ghcr.io/zaproxy/zaproxy:stable
-    command: ["zap.sh", "-daemon", "-host", "0.0.0.0", "-port", "8080", "-config", "api.disablekey=true"]
+    command: zap.sh -daemon -config api.disablekey=true -config api.addrs.addr.name=.* -config api.addrs.addr.regex=true -config api.addrs.addr.value=true
     ports:
       - "8080:8080"
     restart: unless-stopped
 
-  web:
-    build: .
-    environment:
-      - DEBUG=false
-      - ALLOWED_HOSTS=*
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - ZAP_HTTP=http://zap:8080
-      - ZAP_HTTPS=http://zap:8080
-      - VAPT_API_KEY=${VAPT_API_KEY:-change-this-key}
-    depends_on:
-      - redis
-      - zap
+  nginx:
+    image: nginx:alpine
     ports:
-      - "8000:8000"
-    restart: unless-stopped
-
-  worker:
-    build: .
-    environment:
-      - RUN_CELERY=worker
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - ZAP_HTTP=http://zap:8080
-      - ZAP_HTTPS=http://zap:8080
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
     depends_on:
-      - redis
-      - zap
+      - fastapi
     restart: unless-stopped
-
-

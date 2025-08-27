@@ -1,26 +1,44 @@
 FROM python:3.11-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
-WORKDIR /app
-
-# System deps (note: Wapiti installed via pip, not apt)
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential curl ca-certificates \
-    nmap sqlmap netcat-openbsd \
+    build-essential \
+    curl \
+    ca-certificates \
+    nmap \
+    sqlmap \
+    netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir gunicorn
+# Install Python dependencies
+COPY requirements_fastapi.txt .
+RUN pip install --no-cache-dir -r requirements_fastapi.txt
 
-# Install Wapiti via pip (package name: wapiti3)
+# Install Django requirements for model access
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Wapiti via pip
 RUN pip install --no-cache-dir wapiti3
 
+# Set working directory
+WORKDIR /app
+
+# Copy application code
 COPY . .
-RUN chmod +x /app/entrypoint.sh
 
-EXPOSE 8000
+# Create media directory
+RUN mkdir -p media
 
-ENTRYPOINT ["/app/entrypoint.sh"]
+# Expose port
+EXPOSE 8001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8001/health || exit 1
+
+# Make entrypoint script executable
+RUN chmod +x entrypoint.sh
+
+# Run entrypoint script
+CMD ["./entrypoint.sh"]

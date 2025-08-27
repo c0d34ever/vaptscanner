@@ -1,37 +1,43 @@
-#!/usr/bin/env sh
+#!/bin/bash
 set -e
 
-WAIT_FOR_REDIS_HOST=${WAIT_FOR_REDIS_HOST:-redis}
-WAIT_FOR_REDIS_PORT=${WAIT_FOR_REDIS_PORT:-6379}
-WAIT_FOR_ZAP_HOST=${WAIT_FOR_ZAP_HOST:-zap}
-WAIT_FOR_ZAP_PORT=${WAIT_FOR_ZAP_PORT:-8080}
+echo "🚀 Starting VAPT Scanner FastAPI Application..."
 
-# Wait for Redis
-echo "Waiting for Redis at $WAIT_FOR_REDIS_HOST:$WAIT_FOR_REDIS_PORT..."
-for i in $(seq 1 60); do
-  if nc -z "$WAIT_FOR_REDIS_HOST" "$WAIT_FOR_REDIS_PORT" 2>/dev/null; then
-    echo "Redis is up"; break
-  fi
-  sleep 1
-  if [ "$i" = "60" ]; then echo "Redis not reachable"; fi
-done
-
-# Wait for ZAP
-echo "Waiting for ZAP at $WAIT_FOR_ZAP_HOST:$WAIT_FOR_ZAP_PORT..."
-for i in $(seq 1 120); do
-  if nc -z "$WAIT_FOR_ZAP_HOST" "$WAIT_FOR_ZAP_PORT" 2>/dev/null; then
-    echo "ZAP is up"; break
-  fi
+# Wait for Redis to be ready
+echo "⏳ Waiting for Redis..."
+while ! nc -z redis 6379; do
   sleep 1
 done
+echo "✅ Redis is ready"
 
-python manage.py migrate --noinput
-python manage.py startup_scan || true
+# Wait for ZAP to be ready
+echo "⏳ Waiting for ZAP..."
+while ! nc -z zap 8080; do
+  sleep 1
+done
+echo "✅ ZAP is ready"
 
-if [ "$RUN_CELERY" = "worker" ]; then
-  exec celery -A vapt_platform worker --loglevel=info
+# Apply Django migrations
+echo "🔧 Applying Django migrations..."
+python manage.py migrate
+
+# Create superuser if it doesn't exist
+echo "👤 Checking for superuser..."
+python manage.py shell -c "
+from django.contrib.auth.models import User
+if not User.objects.filter(username='admin').exists():
+    User.objects.create_superuser('admin', 'admin@example.com', 'admin123')
+    print('Superuser created: admin/admin123')
+else:
+    print('Superuser already exists')
+"
+
+# Run startup scan if configured
+if [ ! -z "$STARTUP_SCAN_URL" ] && [ ! -z "$STARTUP_SCAN_ENGINE" ]; then
+    echo "🚀 Running startup scan on $STARTUP_SCAN_URL with $STARTUP_SCAN_ENGINE..."
+    python manage.py startup_scan
 fi
 
-exec gunicorn vapt_platform.wsgi:application --bind 0.0.0.0:8000 --workers 3
-
-
+# Start FastAPI application
+echo "🚀 Starting FastAPI server..."
+exec python fastapi_app.py
