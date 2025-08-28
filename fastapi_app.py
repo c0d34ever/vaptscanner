@@ -12,6 +12,7 @@ import io
 from datetime import datetime, timedelta
 import os
 import sys
+from asgiref.sync import sync_to_async
 
 # Add Django project to path for model access
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -139,29 +140,33 @@ async def health_check():
 async def create_scan(scan_data: ScanCreate, api_key: str = Depends(verify_api_key)):
     """Create a new scan"""
     try:
-        template = None
-        if scan_data.template_id:
-            template = ScanTemplate.objects.get(id=scan_data.template_id)
+        @sync_to_async
+        def create_scan_sync():
+            template = None
+            if scan_data.template_id:
+                template = ScanTemplate.objects.get(id=scan_data.template_id)
+            
+            scan = Scan.objects.create(
+                target_url=str(scan_data.target_url),
+                engine=scan_data.engine,
+                options=scan_data.options or {},
+                template=template
+            )
+            
+            # Start scan in background
+            run_vapt_scan.delay(scan.id)
+            
+            return {
+                "success": True,
+                "id": scan.id,
+                "status": scan.status,
+                "message": "Scan created and started",
+                "target_url": str(scan_data.target_url),
+                "engine": scan_data.engine,
+                "created_at": scan.start_time.isoformat()
+            }
         
-        scan = Scan.objects.create(
-            target_url=str(scan_data.target_url),
-            engine=scan_data.engine,
-            options=scan_data.options or {},
-            template=template
-        )
-        
-        # Start scan in background
-        run_vapt_scan.delay(scan.id)
-        
-        return {
-            "success": True,
-            "id": scan.id,
-            "status": scan.status,
-            "message": "Scan created and started",
-            "target_url": str(scan_data.target_url),
-            "engine": scan_data.engine,
-            "created_at": scan.start_time.isoformat()
-        }
+        return await create_scan_sync()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating scan: {str(e)}")
 
@@ -169,18 +174,22 @@ async def create_scan(scan_data: ScanCreate, api_key: str = Depends(verify_api_k
 async def list_scans(api_key: str = Depends(verify_api_key)):
     """List all scans"""
     try:
-        scans = Scan.objects.all().order_by('-start_time')[:100]
-        return [{
-            "id": s.id,
-            "target_url": s.target_url,
-            "engine": s.engine,
-            "status": s.status,
-            "start_time": s.start_time.isoformat(),
-            "end_time": s.end_time.isoformat() if s.end_time else None,
-            "findings_count": s.findings_count,
-            "critical_findings_count": s.critical_findings_count,
-            "error_message": s.error_message
-        } for s in scans]
+        @sync_to_async
+        def list_scans_sync():
+            scans = Scan.objects.all().order_by('-start_time')[:100]
+            return [{
+                "id": s.id,
+                "target_url": s.target_url,
+                "engine": s.engine,
+                "status": s.status,
+                "start_time": s.start_time.isoformat(),
+                "end_time": s.end_time.isoformat() if s.end_time else None,
+                "findings_count": s.findings_count,
+                "critical_findings_count": s.critical_findings_count,
+                "error_message": s.error_message
+            } for s in scans]
+        
+        return await list_scans_sync()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing scans: {str(e)}")
 
@@ -188,25 +197,29 @@ async def list_scans(api_key: str = Depends(verify_api_key)):
 async def get_scan(scan_id: int, api_key: str = Depends(verify_api_key)):
     """Get scan details and results"""
     try:
-        scan = Scan.objects.get(id=scan_id)
-        return {
-            "success": True,
-            "id": scan.id,
-            "target_url": scan.target_url,
-            "engine": scan.engine,
-            "status": scan.status,
-            "start_time": scan.start_time.isoformat(),
-            "end_time": scan.end_time.isoformat() if scan.end_time else None,
-            "report_json": scan.report_json,
-            "error_message": scan.error_message,
-            "findings_count": scan.findings_count,
-            "critical_findings_count": scan.critical_findings_count,
-            "options": scan.options,
-            "template": {
-                "id": scan.template.id,
-                "name": scan.template.name
-            } if scan.template else None
-        }
+        @sync_to_async
+        def get_scan_sync():
+            scan = Scan.objects.get(id=scan_id)
+            return {
+                "success": True,
+                "id": scan.id,
+                "target_url": scan.target_url,
+                "engine": scan.engine,
+                "status": scan.status,
+                "start_time": scan.start_time.isoformat(),
+                "end_time": scan.end_time.isoformat() if scan.end_time else None,
+                "report_json": scan.report_json,
+                "error_message": scan.error_message,
+                "findings_count": scan.findings_count,
+                "critical_findings_count": scan.critical_findings_count,
+                "options": scan.options,
+                "template": {
+                    "id": scan.template.id,
+                    "name": scan.template.name
+                } if scan.template else None
+            }
+        
+        return await get_scan_sync()
     except Scan.DoesNotExist:
         raise HTTPException(status_code=404, detail="Scan not found")
     except Exception as e:
@@ -216,14 +229,18 @@ async def get_scan(scan_id: int, api_key: str = Depends(verify_api_key)):
 async def get_scan_logs(scan_id: int, api_key: str = Depends(verify_api_key)):
     """Get scan logs"""
     try:
-        scan = Scan.objects.get(id=scan_id)
-        logs = scan.logs.order_by('timestamp')
-        return [{
-            "timestamp": log.timestamp.isoformat(),
-            "level": log.level,
-            "message": log.message,
-            "context": log.context
-        } for log in logs]
+        @sync_to_async
+        def get_scan_logs_sync():
+            scan = Scan.objects.get(id=scan_id)
+            logs = scan.logs.order_by('timestamp')
+            return [{
+                "timestamp": log.timestamp.isoformat(),
+                "level": log.level,
+                "message": log.message,
+                "context": log.context
+            } for log in logs]
+        
+        return await get_scan_logs_sync()
     except Scan.DoesNotExist:
         raise HTTPException(status_code=404, detail="Scan not found")
     except Exception as e:
@@ -234,21 +251,25 @@ async def get_scan_logs(scan_id: int, api_key: str = Depends(verify_api_key)):
 async def create_template(template_data: TemplateCreate, api_key: str = Depends(verify_api_key)):
     """Create a scan template"""
     try:
-        template = ScanTemplate.objects.create(
-            name=template_data.name,
-            engine=template_data.engine,
-            description=template_data.description,
-            options=template_data.options
-        )
-        return {
-            "success": True,
-            "id": template.id,
-            "name": template.name,
-            "engine": template.engine,
-            "description": template.description,
-            "options": template.options,
-            "created_at": template.created_at.isoformat()
-        }
+        @sync_to_async
+        def create_template_sync():
+            template = ScanTemplate.objects.create(
+                name=template_data.name,
+                engine=template_data.engine,
+                description=template_data.description,
+                options=template_data.options
+            )
+            return {
+                "success": True,
+                "id": template.id,
+                "name": template.name,
+                "engine": template.engine,
+                "description": template.description,
+                "options": template.options,
+                "created_at": template.created_at.isoformat()
+            }
+        
+        return await create_template_sync()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating template: {str(e)}")
 
@@ -256,16 +277,20 @@ async def create_template(template_data: TemplateCreate, api_key: str = Depends(
 async def list_templates(api_key: str = Depends(verify_api_key)):
     """List all templates"""
     try:
-        templates = ScanTemplate.objects.filter(is_active=True)
-        return [{
-            "id": t.id,
-            "name": t.name,
-            "engine": t.engine,
-            "description": t.description,
-            "options": t.options,
-            "created_at": t.created_at.isoformat(),
-            "is_active": t.is_active
-        } for t in templates]
+        @sync_to_async
+        def list_templates_sync():
+            templates = ScanTemplate.objects.filter(is_active=True)
+            return [{
+                "id": t.id,
+                "name": t.name,
+                "engine": t.engine,
+                "description": t.description,
+                "options": t.options,
+                "created_at": t.created_at.isoformat(),
+                "is_active": t.is_active
+            } for t in templates]
+        
+        return await list_templates_sync()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing templates: {str(e)}")
 
@@ -274,29 +299,33 @@ async def list_templates(api_key: str = Depends(verify_api_key)):
 async def create_scheduled_scan(scheduled_data: ScheduledScanCreate, api_key: str = Depends(verify_api_key)):
     """Create a scheduled scan"""
     try:
-        template = None
-        if scheduled_data.template_id:
-            template = ScanTemplate.objects.get(id=scheduled_data.template_id)
+        @sync_to_async
+        def create_scheduled_scan_sync():
+            template = None
+            if scheduled_data.template_id:
+                template = ScanTemplate.objects.get(id=scheduled_data.template_id)
+            
+            scheduled = ScheduledScan.objects.create(
+                name=scheduled_data.name,
+                target_url=str(scheduled_data.target_url),
+                engine=scheduled_data.engine,
+                frequency=scheduled_data.frequency,
+                next_run=scheduled_data.next_run,
+                template=template
+            )
+            
+            return {
+                "success": True,
+                "id": scheduled.id,
+                "name": scheduled.name,
+                "target_url": str(scheduled_data.target_url),
+                "engine": scheduled_data.engine,
+                "frequency": scheduled_data.frequency,
+                "next_run": scheduled.next_run.isoformat(),
+                "created_at": scheduled.created_at.isoformat()
+            }
         
-        scheduled = ScheduledScan.objects.create(
-            name=scheduled_data.name,
-            target_url=str(scheduled_data.target_url),
-            engine=scheduled_data.engine,
-            frequency=scheduled_data.frequency,
-            next_run=scheduled_data.next_run,
-            template=template
-        )
-        
-        return {
-            "success": True,
-            "id": scheduled.id,
-            "name": scheduled.name,
-            "target_url": str(scheduled_data.target_url),
-            "engine": scheduled_data.engine,
-            "frequency": scheduled_data.frequency,
-            "next_run": scheduled.next_run.isoformat(),
-            "created_at": scheduled.created_at.isoformat()
-        }
+        return await create_scheduled_scan_sync()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating scheduled scan: {str(e)}")
 
@@ -304,17 +333,21 @@ async def create_scheduled_scan(scheduled_data: ScheduledScanCreate, api_key: st
 async def list_scheduled_scans(api_key: str = Depends(verify_api_key)):
     """List all scheduled scans"""
     try:
-        scheduled = ScheduledScan.objects.filter(is_active=True)
-        return [{
-            "id": s.id,
-            "name": s.name,
-            "target_url": s.target_url,
-            "engine": s.engine,
-            "frequency": s.frequency,
-            "next_run": s.next_run.isoformat(),
-            "is_active": s.is_active,
-            "created_at": s.created_at.isoformat()
-        } for s in scheduled]
+        @sync_to_async
+        def list_scheduled_scans_sync():
+            scheduled = ScheduledScan.objects.filter(is_active=True)
+            return [{
+                "id": s.id,
+                "name": s.name,
+                "target_url": s.target_url,
+                "engine": s.engine,
+                "frequency": s.frequency,
+                "next_run": s.next_run.isoformat(),
+                "is_active": s.is_active,
+                "created_at": s.created_at.isoformat()
+            } for s in scheduled]
+        
+        return await list_scheduled_scans_sync()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing scheduled scans: {str(e)}")
 
@@ -323,28 +356,32 @@ async def list_scheduled_scans(api_key: str = Depends(verify_api_key)):
 async def bulk_scan(bulk_data: BulkScanCreate, api_key: str = Depends(verify_api_key)):
     """Create multiple scans at once"""
     try:
-        template = None
-        if bulk_data.template_id:
-            template = ScanTemplate.objects.get(id=bulk_data.template_id)
+        @sync_to_async
+        def bulk_scan_sync():
+            template = None
+            if bulk_data.template_id:
+                template = ScanTemplate.objects.get(id=bulk_data.template_id)
+            
+            scan_ids = []
+            for url in bulk_data.urls:
+                scan = Scan.objects.create(
+                    target_url=str(url),
+                    engine=bulk_data.engine,
+                    template=template
+                )
+                run_vapt_scan.delay(scan.id)
+                scan_ids.append(scan.id)
+            
+            return {
+                "success": True,
+                "message": f"Created {len(scan_ids)} scans",
+                "scan_ids": scan_ids,
+                "total_urls": len(bulk_data.urls),
+                "engine": bulk_data.engine,
+                "template_id": bulk_data.template_id
+            }
         
-        scan_ids = []
-        for url in bulk_data.urls:
-            scan = Scan.objects.create(
-                target_url=str(url),
-                engine=bulk_data.engine,
-                template=template
-            )
-            run_vapt_scan.delay(scan.id)
-            scan_ids.append(scan.id)
-        
-        return {
-            "success": True,
-            "message": f"Created {len(scan_ids)} scans",
-            "scan_ids": scan_ids,
-            "total_urls": len(bulk_data.urls),
-            "engine": bulk_data.engine,
-            "template_id": bulk_data.template_id
-        }
+        return await bulk_scan_sync()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating bulk scans: {str(e)}")
 
@@ -354,39 +391,45 @@ async def get_stats(days: int = 30, api_key: str = Depends(verify_api_key)):
     """Get scan statistics"""
     try:
         since = datetime.now() - timedelta(days=days)
-        scans = Scan.objects.filter(start_time__gte=since)
         
-        from django.db.models import Count, Avg
+        # Wrap Django ORM calls with sync_to_async
+        @sync_to_async
+        def get_stats_sync():
+            scans = Scan.objects.filter(start_time__gte=since)
+            
+            from django.db.models import Count, Avg
+            
+            stats = {
+                "success": True,
+                "period_days": days,
+                "total_scans": scans.count(),
+                "completed_scans": scans.filter(status='COMPLETED').count(),
+                "failed_scans": scans.filter(status='FAILED').count(),
+                "in_progress_scans": scans.filter(status='IN_PROGRESS').count(),
+                "pending_scans": scans.filter(status='PENDING').count(),
+                "total_findings": Finding.objects.filter(scan__in=scans).count(),
+                "critical_findings": Finding.objects.filter(
+                    scan__in=scans, 
+                    severity__in=['Critical', 'High']
+                ).count(),
+                "engine_breakdown": list(scans.values('engine').annotate(count=Count('id'))),
+                "status_breakdown": list(scans.values('status').annotate(count=Count('id')))
+            }
+            
+            # Calculate average duration for completed scans
+            completed_scans = scans.filter(status='COMPLETED', end_time__isnull=False)
+            if completed_scans.exists():
+                total_duration = sum([
+                    (s.end_time - s.start_time).total_seconds() 
+                    for s in completed_scans
+                ], 0)
+                stats["avg_duration_seconds"] = total_duration / completed_scans.count()
+            else:
+                stats["avg_duration_seconds"] = 0
+            
+            return stats
         
-        stats = {
-            "success": True,
-            "period_days": days,
-            "total_scans": scans.count(),
-            "completed_scans": scans.filter(status='COMPLETED').count(),
-            "failed_scans": scans.filter(status='FAILED').count(),
-            "in_progress_scans": scans.filter(status='IN_PROGRESS').count(),
-            "pending_scans": scans.filter(status='PENDING').count(),
-            "total_findings": Finding.objects.filter(scan__in=scans).count(),
-            "critical_findings": Finding.objects.filter(
-                scan__in=scans, 
-                severity__in=['Critical', 'High']
-            ).count(),
-            "engine_breakdown": list(scans.values('engine').annotate(count=Count('id'))),
-            "status_breakdown": list(scans.values('status').annotate(count=Count('id')))
-        }
-        
-        # Calculate average duration for completed scans
-        completed_scans = scans.filter(status='COMPLETED', end_time__isnull=False)
-        if completed_scans.exists():
-            total_duration = sum([
-                (s.end_time - s.start_time).total_seconds() 
-                for s in completed_scans
-            ], 0)
-            stats["avg_duration_seconds"] = total_duration / completed_scans.count()
-        else:
-            stats["avg_duration_seconds"] = 0
-        
-        return stats
+        return await get_stats_sync()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting stats: {str(e)}")
 
@@ -395,61 +438,65 @@ async def get_stats(days: int = 30, api_key: str = Depends(verify_api_key)):
 async def export_scan(scan_id: int, format: str = "json", api_key: str = Depends(verify_api_key)):
     """Export scan results"""
     try:
-        scan = Scan.objects.get(id=scan_id)
-        
-        if format == "csv":
-            # Create CSV in memory
-            output = io.StringIO()
-            writer = csv.writer(output)
-            writer.writerow(['Finding', 'Severity', 'URL', 'Description', 'CVE ID', 'CVSS Score'])
+        @sync_to_async
+        def export_scan_sync():
+            scan = Scan.objects.get(id=scan_id)
             
-            for finding in scan.findings.all():
-                writer.writerow([
-                    finding.name,
-                    finding.severity,
-                    finding.url,
-                    finding.description,
-                    finding.cve_id or '',
-                    finding.cvss_score or ''
-                ])
+            if format == "csv":
+                # Create CSV in memory
+                output = io.StringIO()
+                writer = csv.writer(output)
+                writer.writerow(['Finding', 'Severity', 'URL', 'Description', 'CVE ID', 'CVSS Score'])
+                
+                for finding in scan.findings.all():
+                    writer.writerow([
+                        finding.name,
+                        finding.severity,
+                        finding.url,
+                        finding.description,
+                        finding.cve_id or '',
+                        finding.cvss_score or ''
+                    ])
+                
+                output.seek(0)
+                return FileResponse(
+                    io.BytesIO(output.getvalue().encode()),
+                    media_type='text/csv',
+                    filename=f'scan_{scan_id}.csv'
+                )
             
-            output.seek(0)
-            return FileResponse(
-                io.BytesIO(output.getvalue().encode()),
-                media_type='text/csv',
-                filename=f'scan_{scan_id}.csv'
-            )
+            elif format == "json":
+                data = {
+                    "success": True,
+                    "scan": {
+                        "id": scan.id,
+                        "target_url": scan.target_url,
+                        "engine": scan.engine,
+                        "status": scan.status,
+                        "start_time": scan.start_time.isoformat(),
+                        "end_time": scan.end_time.isoformat() if scan.end_time else None,
+                    },
+                    "findings": [{
+                        "name": f.name,
+                        "severity": f.severity,
+                        "url": f.url,
+                        "description": f.description,
+                        "cve_id": f.cve_id,
+                        "cvss_score": float(f.cvss_score) if f.cvss_score else None,
+                    } for f in scan.findings.all()],
+                    "logs": [{
+                        "timestamp": l.timestamp.isoformat(),
+                        "level": l.level,
+                        "message": l.message,
+                        "context": l.context
+                    } for l in scan.logs.all()]
+                }
+                return JSONResponse(content=data)
+            
+            else:
+                raise HTTPException(status_code=400, detail="Invalid format. Use csv or json")
         
-        elif format == "json":
-            data = {
-                "success": True,
-                "scan": {
-                    "id": scan.id,
-                    "target_url": scan.target_url,
-                    "engine": scan.engine,
-                    "status": scan.status,
-                    "start_time": scan.start_time.isoformat(),
-                    "end_time": scan.end_time.isoformat() if scan.end_time else None,
-                },
-                "findings": [{
-                    "name": f.name,
-                    "severity": f.severity,
-                    "url": f.url,
-                    "description": f.description,
-                    "cve_id": f.cve_id,
-                    "cvss_score": float(f.cvss_score) if f.cvss_score else None,
-                } for f in scan.findings.all()],
-                "logs": [{
-                    "timestamp": l.timestamp.isoformat(),
-                    "level": l.level,
-                    "message": l.message,
-                    "context": l.context
-                } for l in scan.logs.all()]
-            }
-            return JSONResponse(content=data)
-        
-        else:
-            raise HTTPException(status_code=400, detail="Invalid format. Use csv or json")
+        return await export_scan_sync()
             
     except Scan.DoesNotExist:
         raise HTTPException(status_code=404, detail="Scan not found")
@@ -467,35 +514,39 @@ async def search_scans(
 ):
     """Search scans with filters"""
     try:
-        from django.db.models import Q
+        @sync_to_async
+        def search_scans_sync():
+            from django.db.models import Q
+            
+            scans = Scan.objects.all()
+            
+            if q:
+                scans = scans.filter(
+                    Q(target_url__icontains=q) |
+                    Q(notes__icontains=q) |
+                    Q(findings__name__icontains=q)
+                ).distinct()
+            
+            if engine:
+                scans = scans.filter(engine=engine)
+            
+            if status:
+                scans = scans.filter(status=status)
+            
+            if severity:
+                scans = scans.filter(findings__severity=severity).distinct()
+            
+            return [{
+                "id": s.id,
+                "target_url": s.target_url,
+                "engine": s.engine,
+                "status": s.status,
+                "start_time": s.start_time.isoformat(),
+                "findings_count": s.findings_count,
+                "critical_findings_count": s.critical_findings_count
+            } for s in scans[:100]]
         
-        scans = Scan.objects.all()
-        
-        if q:
-            scans = scans.filter(
-                Q(target_url__icontains=q) |
-                Q(notes__icontains=q) |
-                Q(findings__name__icontains=q)
-            ).distinct()
-        
-        if engine:
-            scans = scans.filter(engine=engine)
-        
-        if status:
-            scans = scans.filter(status=status)
-        
-        if severity:
-            scans = scans.filter(findings__severity=severity).distinct()
-        
-        return [{
-            "id": s.id,
-            "target_url": s.target_url,
-            "engine": s.engine,
-            "status": s.status,
-            "start_time": s.start_time.isoformat(),
-            "findings_count": s.findings_count,
-            "critical_findings_count": s.critical_findings_count
-        } for s in scans[:100]]
+        return await search_scans_sync()
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error searching scans: {str(e)}")
