@@ -92,6 +92,18 @@ async def verify_api_key(x_api_key: str = Header(None)):
     
     return x_api_key
 
+# Favicon endpoint
+@app.get("/favicon.ico")
+async def favicon():
+    """Serve favicon to prevent 404 errors"""
+    # Return a simple text response instead of trying to read a non-existent .ico file
+    return HTMLResponse(content="""
+    <html>
+        <head><title>Favicon</title></head>
+        <body></body>
+    </html>
+    """, media_type="text/html")
+
 # Root endpoint - serve the main UI
 @app.get("/", response_class=HTMLResponse)
 async def root():
